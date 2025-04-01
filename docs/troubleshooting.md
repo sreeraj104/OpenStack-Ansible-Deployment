@@ -2,7 +2,7 @@
 ---
 
 ### **Updated `troubleshooting.md`**
-```markdown
+
 # Troubleshooting Guide
 
 This guide provides solutions to common issues encountered during or after the OpenStack deployment.
