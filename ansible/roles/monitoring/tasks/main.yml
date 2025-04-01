@@ -1,0 +1,99 @@
+---
+- name: Install Ceilometer packages
+  block:
+    - name: Install Ceilometer packages
+      apt:
+        name:
+          - ceilometer-agent-compute
+          - ceilometer-agent-central
+          - ceilometer-agent-notification
+          - python3-ceilometerclient
+        state: present
+  rescue:
+    - name: Log Ceilometer package installation failure
+      debug:
+        msg: "Failed to install Ceilometer packages. Check your package manager logs."
+
+- name: Configure Ceilometer to use Keystone
+  block:
+    - name: Configure Ceilometer to use Keystone
+      lineinfile:
+        path: /etc/ceilometer/ceilometer.conf
+        section: keystone_authtoken
+        option: "{{ item.option }}"
+        value: "{{ item.value }}"
+      with_items:
+        - { option: "auth_url", value: "http://{{ keystone_host }}:5000/v3" }
+        - { option: "memcached_servers", value: "127.0.0.1:11211" }
+        - { option: "auth_type", value: "password" }
+        - { option: "project_domain_name", value: "Default" }
+        - { option: "user_domain_name", value: "Default" }
+        - { option: "project_name", value: "service" }
+        - { option: "username", value: "ceilometer" }
+        - { option: "password", value: "{{ ceilometer_service_password }}" }
+  rescue:
+    - name: Log Ceilometer Keystone configuration failure
+      debug:
+        msg: "Failed to configure Ceilometer to use Keystone."
+
+- name: Enable Ceilometer polling
+  block:
+    - name: Enable Ceilometer polling
+      lineinfile:
+        path: /etc/ceilometer/pipeline.yaml
+        regexp: '^#.*'
+        state: absent
+  rescue:
+    - name: Log Ceilometer polling enablement failure
+      debug:
+        msg: "Failed to enable Ceilometer polling."
+
+- name: Restart Ceilometer services
+  block:
+    - name: Restart Ceilometer services
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+      with_items:
+        - ceilometer-agent-compute
+        - ceilometer-agent-central
+        - ceilometer-agent-notification
+  rescue:
+    - name: Log Ceilometer service restart failure
+      debug:
+        msg: "Failed to restart Ceilometer services."
+
+- name: Install rsyslog for centralized logging
+  block:
+    - name: Install rsyslog
+      apt:
+        name: rsyslog
+        state: present
+  rescue:
+    - name: Log rsyslog installation failure
+      debug:
+        msg: "Failed to install rsyslog."
+
+- name: Configure rsyslog for centralized logging
+  block:
+    - name: Configure rsyslog for centralized logging
+      copy:
+        src: rsyslog.conf.j2
+        dest: /etc/rsyslog.d/openstack.conf
+  rescue:
+    - name: Log rsyslog configuration failure
+      debug:
+        msg: "Failed to configure rsyslog for centralized logging."
+
+- name: Restart rsyslog
+  block:
+    - name: Restart rsyslog
+      service:
+        name: rsyslog
+        state: restarted
+        enabled: yes
+  rescue:
+    - name: Log rsyslog restart failure
+      debug:
+        msg: "Failed to restart rsyslog."

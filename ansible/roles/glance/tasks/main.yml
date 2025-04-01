@@ -1,0 +1,74 @@
+---
+- name: Install Glance packages
+  block:
+    - name: Install Glance packages
+      apt:
+        name:
+          - glance
+        state: present
+  rescue:
+    - name: Log Glance package installation failure
+      debug:
+        msg: "Failed to install Glance packages. Check your package manager logs."
+
+- name: Configure Glance database connection
+  block:
+    - name: Configure Glance database connection
+      lineinfile:
+        path: /etc/glance/glance-api.conf
+        section: database
+        option: connection
+        value: "mysql+pymysql://{{ glance_db_user }}:{{ glance_db_password }}@{{ glance_db_host }}/{{ glance_db_name }}"
+  rescue:
+    - name: Log Glance database configuration failure
+      debug:
+        msg: "Failed to configure Glance database connection."
+
+- name: Configure Keystone authentication for Glance
+  block:
+    - name: Configure Keystone authentication for Glance
+      lineinfile:
+        path: /etc/glance/glance-api.conf
+        section: keystone_authtoken
+        option: "{{ item.option }}"
+        value: "{{ item.value }}"
+      with_items:
+        - { option: "auth_url", value: "http://{{ keystone_host }}:5000/v3" }
+        - { option: "memcached_servers", value: "127.0.0.1:11211" }
+        - { option: "auth_type", value: "password" }
+        - { option: "project_domain_name", value: "Default" }
+        - { option: "user_domain_name", value: "Default" }
+        - { option: "project_name", value: "service" }
+        - { option: "username", value: "glance" }
+        - { option: "password", value: "{{ glance_service_password }}" }
+  rescue:
+    - name: Log Keystone authentication configuration failure
+      debug:
+        msg: "Failed to configure Keystone authentication for Glance."
+
+- name: Initialize Glance database
+  block:
+    - name: Initialize Glance database
+      command: >
+        su -s /bin/sh -c "glance-manage db_sync" glance
+      args:
+        creates: /var/lib/glance/glance.sqlite
+  rescue:
+    - name: Rollback Glance database initialization
+      command: >
+        mysql -u root -e "DROP DATABASE IF EXISTS {{ glance_db_name }};"
+      ignore_errors: true
+
+- name: Restart Glance services
+  block:
+    - name: Restart Glance services
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+      with_items:
+        - glance-api
+  rescue:
+    - name: Log Glance service restart failure
+      debug:
+        msg: "Failed to restart Glance services."

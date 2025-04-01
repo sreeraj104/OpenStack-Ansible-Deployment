@@ -1,0 +1,69 @@
+---
+- name: Create SSH key pair for instances
+  block:
+    - name: Create SSH key pair for instances
+      shell: |
+        if [ ! -f "{{ keypair_private_key }}" ]; then
+          ssh-keygen -t rsa -b 2048 -f "{{ keypair_private_key }}" -N ""
+        fi
+      args:
+        creates: "{{ keypair_private_key }}"
+  rescue:
+    - name: Log SSH key pair creation failure
+      debug:
+        msg: "Failed to create SSH key pair for instances."
+
+- name: Upload public key to OpenStack
+  block:
+    - name: Upload public key to OpenStack
+      command: >
+        openstack keypair create --public-key {{ keypair_public_key }} {{ keypair_name }}
+      environment:
+        OS_USERNAME: admin
+        OS_PASSWORD: "{{ admin_password }}"
+        OS_PROJECT_NAME: admin
+        OS_AUTH_URL: http://{{ keystone_host }}:5000/v3
+      args:
+        creates: "/tmp/{{ keypair_name }}.uploaded"
+  rescue:
+    - name: Log public key upload failure
+      debug:
+        msg: "Failed to upload public key to OpenStack."
+
+- name: Configure RBAC roles in Keystone
+  block:
+    - name: Check if RBAC roles already exist
+      command: >
+        openstack role list -f value -c Name
+      register: existing_roles
+
+    - name: Create RBAC roles in Keystone
+      command: >
+        openstack role create {{ item }}
+      with_items:
+        - admin
+        - member
+        - reader
+      when: item not in existing_roles.stdout_lines
+      environment:
+        OS_USERNAME: admin
+        OS_PASSWORD: "{{ admin_password }}"
+        OS_PROJECT_NAME: admin
+        OS_AUTH_URL: http://{{ keystone_host }}:5000/v3
+  rescue:
+    - name: Log RBAC role configuration failure
+      debug:
+        msg: "Failed to configure RBAC roles in Keystone."
+
+- name: Enable Swift encryption
+  block:
+    - name: Enable Swift encryption
+      lineinfile:
+        path: /etc/swift/swift.conf
+        section: storage-policy:0
+        option: encryption
+        value: "true"
+  rescue:
+    - name: Log Swift encryption configuration failure
+      debug:
+        msg: "Failed to enable Swift encryption."

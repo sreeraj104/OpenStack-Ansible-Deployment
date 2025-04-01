@@ -1,0 +1,3 @@
+---
+# Default variables for the common role
+openstack_sdk_version: latest

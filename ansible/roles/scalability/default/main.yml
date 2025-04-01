@@ -1,0 +1,10 @@
+---
+# Keystone authentication for Heat
+heat_service_password: "{{ lookup('env', 'HEAT_SERVICE_PASSWORD') | default('heat_password') }}"
+
+# Keystone host
+keystone_host: "{{ keystone_host }}"
+
+# Swift dynamic scaling
+swift_replicas: "{{ swift_replicas | default(3) }}"
+new_storage_node_ip: "{{ new_storage_node_ip | default('127.0.0.1') }}"

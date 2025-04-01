@@ -1,0 +1,8 @@
+---
+# Keystone authentication for Swift
+keystone_host: "{{ lookup('env', 'KEYSTONE_HOST') | default('127.0.0.1') }}"
+region_name: "{{ lookup('env', 'REGION_NAME') | default('RegionOne') }}"
+
+# Swift storage configuration
+swift_storage_device: "{{ lookup('env', 'SWIFT_STORAGE_DEVICE') | default('/srv/node/sdb') }}"
+swift_bind_port: "{{ lookup('env', 'SWIFT_BIND_PORT') | default(8080) }}"

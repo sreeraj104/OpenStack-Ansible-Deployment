@@ -1,0 +1,15 @@
+---
+# Cinder database configuration
+cinder_db_user: cinder
+cinder_db_password: "{{ lookup('env', 'CINDER_DB_PASSWORD') | default('cinder_password') }}"
+cinder_db_host: localhost
+cinder_db_name: cinder
+
+# Keystone authentication for Cinder
+cinder_service_password: "{{ lookup('env', 'CINDER_SERVICE_PASSWORD') | default('cinder_password') }}"
+
+# LVM configuration for Cinder
+cinder_volume_group: "{{ cinder_volume_group }}"
+
+# Keystone host
+keystone_host: "{{ keystone_host }}"

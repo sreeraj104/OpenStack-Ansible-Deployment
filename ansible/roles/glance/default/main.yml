@@ -1,0 +1,9 @@
+---
+# Glance database configuration
+glance_db_user: glance
+glance_db_password: "{{ lookup('env', 'GLANCE_DB_PASSWORD') | default('glance_password') }}"
+glance_db_host: localhost
+glance_db_name: glance
+
+# Keystone host
+keystone_host: "{{ keystone_host }}"

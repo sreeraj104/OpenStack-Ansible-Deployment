@@ -1,0 +1,20 @@
+---
+# Nova database configuration
+nova_db_user: nova
+nova_db_password: "{{ lookup('env', 'NOVA_DB_PASSWORD') | default('nova_password') }}"
+nova_db_host: localhost
+nova_db_name: nova
+
+# Keystone authentication for Nova
+nova_service_password: "{{ lookup('env', 'NOVA_SERVICE_PASSWORD') | default('nova_password') }}"
+
+# Glance and Neutron hosts
+glance_host: "{{ glance_host | default('127.0.0.1') }}"
+neutron_host: "{{ neutron_host | default('127.0.0.1') }}"
+
+# Keystone host and region
+keystone_host: "{{ keystone_host }}"
+region_name: "{{ region_name }}"
+
+# Neutron service password
+neutron_service_password: "{{ lookup('env', 'NEUTRON_SERVICE_PASSWORD') | default('neutron_password') }}"

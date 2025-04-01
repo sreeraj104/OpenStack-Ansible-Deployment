@@ -1,0 +1,101 @@
+---
+- name: Install Neutron packages
+  block:
+    - name: Install Neutron packages
+      apt:
+        name:
+          - neutron-server
+          - neutron-plugin-ml2
+          - neutron-linuxbridge-agent
+          - neutron-dhcp-agent
+          - neutron-metadata-agent
+          - neutron-l3-agent
+        state: present
+  rescue:
+    - name: Log Neutron package installation failure
+      debug:
+        msg: "Failed to install Neutron packages. Check your package manager logs."
+
+- name: Configure Neutron database connection
+  block:
+    - name: Configure Neutron database connection
+      lineinfile:
+        path: /etc/neutron/neutron.conf
+        section: database
+        option: connection
+        value: "mysql+pymysql://{{ neutron_db_user }}:{{ neutron_db_password }}@{{ neutron_db_host }}/{{ neutron_db_name }}"
+  rescue:
+    - name: Log Neutron database configuration failure
+      debug:
+        msg: "Failed to configure Neutron database connection."
+
+- name: Configure Keystone authentication for Neutron
+  block:
+    - name: Configure Keystone authentication for Neutron
+      lineinfile:
+        path: /etc/neutron/neutron.conf
+        section: keystone_authtoken
+        option: "{{ item.option }}"
+        value: "{{ item.value }}"
+      with_items:
+        - { option: "auth_url", value: "http://{{ keystone_host }}:5000/v3" }
+        - { option: "memcached_servers", value: "127.0.0.1:11211" }
+        - { option: "auth_type", value: "password" }
+        - { option: "project_domain_name", value: "Default" }
+        - { option: "user_domain_name", value: "Default" }
+        - { option: "project_name", value: "service" }
+        - { option: "username", value: "neutron" }
+        - { option: "password", value: "{{ neutron_service_password }}" }
+  rescue:
+    - name: Log Keystone authentication configuration failure
+      debug:
+        msg: "Failed to configure Keystone authentication for Neutron."
+
+- name: Configure ML2 plugin
+  block:
+    - name: Configure ML2 plugin
+      lineinfile:
+        path: /etc/neutron/plugins/ml2/ml2_conf.ini
+        section: ml2
+        option: "{{ item.option }}"
+        value: "{{ item.value }}"
+      with_items:
+        - { option: "type_drivers", value: "flat,vlan,vxlan" }
+        - { option: "tenant_network_types", value: "vxlan" }
+        - { option: "mechanism_drivers", value: "linuxbridge,l2population" }
+        - { option: "extension_drivers", value: "port_security" }
+  rescue:
+    - name: Log ML2 plugin configuration failure
+      debug:
+        msg: "Failed to configure ML2 plugin."
+
+- name: Initialize Neutron database
+  block:
+    - name: Initialize Neutron database
+      command: >
+        su -s /bin/sh -c "neutron-db-manage upgrade head" neutron
+      args:
+        creates: /var/lib/neutron/neutron.sqlite
+  rescue:
+    - name: Rollback Neutron database initialization
+      command: >
+        mysql -u root -e "DROP DATABASE IF EXISTS {{ neutron_db_name }};"
+      ignore_errors: true
+
+- name: Restart Neutron services
+  block:
+    - name: Restart Neutron services
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+      with_items:
+        - neutron-server
+        - neutron-linuxbridge-agent
+        - neutron-dhcp-agent
+        - neutron-metadata-agent
+        - neutron-l3-agent
+  rescue:
+    - name: Log Neutron service restart failure
+      debug:
+        msg: "Failed to restart Neutron services."

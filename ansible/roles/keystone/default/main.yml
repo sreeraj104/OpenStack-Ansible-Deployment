@@ -1,0 +1,10 @@
+---
+# Keystone database configuration
+keystone_db_user: keystone
+keystone_db_password: "{{ lookup('env', 'KEYSTONE_DB_PASSWORD') | default('keystone_password') }}"
+keystone_db_host: localhost
+keystone_db_name: keystone
+
+# Keystone host and region
+keystone_host: "{{ lookup('env', 'KEYSTONE_HOST') | default('127.0.0.1') }}"
+region_name: "{{ lookup('env', 'REGION_NAME') | default('RegionOne') }}"

@@ -1,0 +1,51 @@
+---
+- name: Update apt cache
+  block:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+  rescue:
+    - name: Log apt cache update failure
+      debug:
+        msg: "Failed to update apt cache. Check your network or package sources."
+
+- name: Upgrade all packages
+  block:
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+        autoremove: yes
+  rescue:
+    - name: Log package upgrade failure
+      debug:
+        msg: "Failed to upgrade packages. Check your package manager logs."
+
+- name: Install required system packages
+  block:
+    - name: Install required system packages
+      apt:
+        name:
+          - python3
+          - python3-pip
+          - python3-venv
+          - software-properties-common
+          - build-essential
+          - git
+          - curl
+        state: present
+  rescue:
+    - name: Log system package installation failure
+      debug:
+        msg: "Failed to install required system packages."
+
+- name: Install Ansible dependencies
+  block:
+    - name: Install Ansible dependencies
+      pip:
+        name:
+          - openstacksdk
+          - ansible
+  rescue:
+    - name: Log Ansible dependency installation failure
+      debug:
+        msg: "Failed to install Ansible dependencies."

@@ -1,0 +1,12 @@
+---
+# Trove database configuration
+trove_db_user: trove
+trove_db_password: "{{ lookup('env', 'TROVE_DB_PASSWORD') | default('trove_password') }}"
+trove_db_host: localhost
+trove_db_name: trove
+
+# Keystone authentication for Trove
+trove_service_password: "{{ lookup('env', 'TROVE_SERVICE_PASSWORD') | default('trove_password') }}"
+
+# Keystone host
+keystone_host: "{{ lookup('env', 'KEYSTONE_HOST') | default('127.0.0.1') }}"

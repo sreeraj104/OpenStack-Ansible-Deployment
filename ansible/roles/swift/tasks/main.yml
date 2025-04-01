@@ -1,0 +1,93 @@
+---
+- name: Install Swift packages
+  block:
+    - name: Install Swift packages
+      apt:
+        name:
+          - swift
+          - swift-account
+          - swift-container
+          - swift-object
+          - python3-swiftclient
+          - memcached
+        state: present
+  rescue:
+    - name: Log Swift package installation failure
+      debug:
+        msg: "Failed to install Swift packages. Check your package manager logs."
+
+- name: Configure Keystone authentication for Swift
+  block:
+    - name: Configure Keystone authentication for Swift
+      lineinfile:
+        path: /etc/swift/proxy-server.conf
+        section: filter:keystoneauth
+        option: "{{ item.option }}"
+        value: "{{ item.value }}"
+      with_items:
+        - { option: "use", value: "egg:swift#keystoneauth" }
+        - { option: "operator_roles", value: "admin,user" }
+        - { option: "reseller_prefix", value: "AUTH_" }
+  rescue:
+    - name: Log Keystone authentication configuration failure
+      debug:
+        msg: "Failed to configure Keystone authentication for Swift."
+
+- name: Configure Swift proxy server
+  block:
+    - name: Configure Swift proxy server
+      lineinfile:
+        path: /etc/swift/proxy-server.conf
+        section: DEFAULT
+        option: "{{ item.option }}"
+        value: "{{ item.value }}"
+      with_items:
+        - { option: "bind_port", value: "{{ swift_bind_port }}" }
+        - { option: "user", value: "swift" }
+        - { option: "swift_dir", value: "/etc/swift" }
+  rescue:
+    - name: Log Swift proxy server configuration failure
+      debug:
+        msg: "Failed to configure Swift proxy server."
+
+- name: Create Swift rings
+  block:
+    - name: Create Swift rings
+      shell: |
+        swift-ring-builder /etc/swift/{{ item }} create 10 3 1
+        {% for device in swift_storage_devices %}
+        swift-ring-builder /etc/swift/{{ item }} add --region 1 --zone 1 --ip 127.0.0.1 --port {{ ports[item] }} --device {{ device | basename }} --weight 100
+        {% endfor %}
+        swift-ring-builder /etc/swift/{{ item }} rebalance
+      args:
+        creates: "/etc/swift/{{ item }}.gz"
+      with_items:
+        - account.builder
+        - container.builder
+        - object.builder
+      vars:
+        ports:
+          account.builder: 6002
+          container.builder: 6001
+          object.builder: 6000
+  rescue:
+    - name: Log Swift ring creation failure
+      debug:
+        msg: "Failed to create Swift rings."
+
+- name: Restart Swift services
+  block:
+    - name: Restart Swift services
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+      with_items:
+        - swift-proxy
+        - swift-account
+        - swift-container
+        - swift-object
+  rescue:
+    - name: Log Swift service restart failure
+      debug:
+        msg: "Failed to restart Swift services."

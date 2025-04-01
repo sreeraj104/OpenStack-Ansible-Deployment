@@ -1,0 +1,116 @@
+---
+- name: Install Nova packages
+  block:
+    - name: Install Nova packages
+      apt:
+        name:
+          - nova-api
+          - nova-conductor
+          - nova-scheduler
+          - nova-novncproxy
+        state: present
+  rescue:
+    - name: Log Nova package installation failure
+      debug:
+        msg: "Failed to install Nova packages. Check your package manager logs."
+
+- name: Configure Nova database connection
+  block:
+    - name: Configure Nova database connection
+      lineinfile:
+        path: /etc/nova/nova.conf
+        section: database
+        option: connection
+        value: "mysql+pymysql://{{ nova_db_user }}:{{ nova_db_password }}@{{ nova_db_host }}/{{ nova_db_name }}"
+  rescue:
+    - name: Log Nova database configuration failure
+      debug:
+        msg: "Failed to configure Nova database connection."
+
+- name: Configure Keystone authentication for Nova
+  block:
+    - name: Configure Keystone authentication for Nova
+      lineinfile:
+        path: /etc/nova/nova.conf
+        section: keystone_authtoken
+        option: "{{ item.option }}"
+        value: "{{ item.value }}"
+      with_items:
+        - { option: "auth_url", value: "http://{{ keystone_host }}:5000/v3" }
+        - { option: "memcached_servers", value: "127.0.0.1:11211" }
+        - { option: "auth_type", value: "password" }
+        - { option: "project_domain_name", value: "Default" }
+        - { option: "user_domain_name", value: "Default" }
+        - { option: "project_name", value: "service" }
+        - { option: "username", value: "nova" }
+        - { option: "password", value: "{{ nova_service_password }}" }
+  rescue:
+    - name: Log Keystone authentication configuration failure
+      debug:
+        msg: "Failed to configure Keystone authentication for Nova."
+
+- name: Configure Glance API endpoint for Nova
+  block:
+    - name: Configure Glance API endpoint for Nova
+      lineinfile:
+        path: /etc/nova/nova.conf
+        section: glance
+        option: api_servers
+        value: "http://{{ glance_host }}:9292"
+  rescue:
+    - name: Log Glance API endpoint configuration failure
+      debug:
+        msg: "Failed to configure Glance API endpoint for Nova."
+
+- name: Configure Neutron endpoint for Nova
+  block:
+    - name: Configure Neutron endpoint for Nova
+      lineinfile:
+        path: /etc/nova/nova.conf
+        section: neutron
+        option: "{{ item.option }}"
+        value: "{{ item.value }}"
+      with_items:
+        - { option: "url", value: "http://{{ neutron_host }}:9696" }
+        - { option: "auth_url", value: "http://{{ keystone_host }}:5000/v3" }
+        - { option: "auth_type", value: "password" }
+        - { option: "project_domain_name", value: "Default" }
+        - { option: "user_domain_name", value: "Default" }
+        - { option: "region_name", value: "{{ region_name }}" }
+        - { option: "project_name", value: "service" }
+        - { option: "username", value: "neutron" }
+        - { option: "password", value: "{{ neutron_service_password }}" }
+  rescue:
+    - name: Log Neutron endpoint configuration failure
+      debug:
+        msg: "Failed to configure Neutron endpoint for Nova."
+
+- name: Initialize Nova database
+  block:
+    - name: Initialize Nova database
+      command: >
+        su -s /bin/sh -c "nova-manage db sync" nova
+      args:
+        creates: /var/lib/nova/nova.sqlite
+  rescue:
+    - name: Rollback Nova database initialization
+      command: >
+        mysql -u root -e "DROP DATABASE IF EXISTS {{ nova_db_name }};"
+      ignore_errors: true
+
+- name: Restart Nova services
+  block:
+    - name: Restart Nova services
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+      with_items:
+        - nova-api
+        - nova-conductor
+        - nova-scheduler
+        - nova-novncproxy
+  rescue:
+    - name: Log Nova service restart failure
+      debug:
+        msg: "Failed to restart Nova services."

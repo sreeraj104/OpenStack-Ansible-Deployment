@@ -1,0 +1,6 @@
+---
+# Keystone authentication for Ceilometer
+ceilometer_service_password: "{{ lookup('env', 'CEILOMETER_SERVICE_PASSWORD') | default('ceilometer_password') }}"
+
+# Keystone host
+keystone_host: "{{ keystone_host }}"

@@ -1,0 +1,20 @@
+---
+- name: Deploy OpenStack Environment
+  hosts: openstack
+  become: true
+  vars_files:
+    - group_vars/all.yml
+
+  roles:
+    - role: common          # Install dependencies and update the system
+    - role: keystone        # Deploy Keystone (Identity Service)
+    - role: glance          # Deploy Glance (Image Service)
+    - role: nova            # Deploy Nova (Compute Service)
+    - role: neutron         # Configure Neutron (Networking Service)
+    - role: swift           # Deploy Swift (Object Storage Service)
+    - role: cinder          # Deploy Cinder (Block Storage Service with LVM)
+    - role: trove           # Deploy Trove (Database Service)
+    - role: horizon         # Deploy Horizon (Dashboard)
+    - role: security        # Configure security (key-pair, RBAC, Swift encryption)
+    - role: monitoring      # Set up monitoring and centralized logging
+    - role: scalability     # Configure Nova auto-scaling and Swift dynamic scaling

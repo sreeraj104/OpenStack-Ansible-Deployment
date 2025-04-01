@@ -1,0 +1,68 @@
+---
+- name: Install Keystone packages
+  block:
+    - name: Install Keystone packages
+      apt:
+        name:
+          - keystone
+          - apache2
+          - libapache2-mod-wsgi-py3
+        state: present
+  rescue:
+    - name: Log Keystone package installation failure
+      debug:
+        msg: "Failed to install Keystone packages. Check your package manager logs."
+
+- name: Configure Keystone database connection
+  block:
+    - name: Configure Keystone database connection
+      lineinfile:
+        path: /etc/keystone/keystone.conf
+        section: database
+        option: connection
+        value: "mysql+pymysql://{{ keystone_db_user }}:{{ keystone_db_password }}@{{ keystone_db_host }}/{{ keystone_db_name }}"
+  rescue:
+    - name: Log Keystone database configuration failure
+      debug:
+        msg: "Failed to configure Keystone database connection."
+
+- name: Initialize Keystone database
+  block:
+    - name: Initialize Keystone database
+      command: >
+        su -s /bin/sh -c "keystone-manage db_sync" keystone
+      args:
+        creates: /var/lib/keystone/keystone.db
+  rescue:
+    - name: Rollback Keystone database initialization
+      command: >
+        mysql -u root -e "DROP DATABASE IF EXISTS {{ keystone_db_name }};"
+      ignore_errors: true
+
+- name: Bootstrap Keystone
+  block:
+    - name: Bootstrap Keystone
+      command: >
+        keystone-manage bootstrap --bootstrap-password {{ admin_password }}
+                                  --bootstrap-admin-url http://{{ keystone_host }}:5000/v3/
+                                  --bootstrap-internal-url http://{{ keystone_host }}:5000/v3/
+                                  --bootstrap-public-url http://{{ keystone_host }}:5000/v3/
+                                  --bootstrap-region-id {{ region_name }}
+      args:
+        creates: /etc/keystone/keystone_bootstrap_done
+  rescue:
+    - name: Log Keystone bootstrap failure
+      debug:
+        msg: "Failed to bootstrap Keystone."
+
+- name: Enable and restart Apache2
+  block:
+    - name: Enable and restart Apache2
+      service:
+        name: apache2
+        state: restarted
+        enabled: yes
+  rescue:
+    - name: Log Apache restart failure
+      debug:
+        msg: "Failed to restart Apache2."

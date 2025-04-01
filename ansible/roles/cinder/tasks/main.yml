@@ -1,0 +1,93 @@
+---
+- name: Install Cinder packages
+  apt:
+    name:
+      - cinder-api
+      - cinder-scheduler
+      - cinder-volume
+      - lvm2
+    state: present
+
+- name: Configure Cinder database connection
+  lineinfile:
+    path: /etc/cinder/cinder.conf
+    section: database
+    option: connection
+    value: "mysql+pymysql://{{ cinder_db_user }}:{{ cinder_db_password }}@{{ cinder_db_host }}/{{ cinder_db_name }}"
+
+- name: Configure Keystone authentication for Cinder
+  lineinfile:
+    path: /etc/cinder/cinder.conf
+    section: keystone_authtoken
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+  with_items:
+    - { option: "auth_url", value: "http://{{ keystone_host }}:5000/v3" }
+    - { option: "memcached_servers", value: "127.0.0.1:11211" }
+    - { option: "auth_type", value: "password" }
+    - { option: "project_domain_name", value: "Default" }
+    - { option: "user_domain_name", value: "Default" }
+    - { option: "project_name", value: "service" }
+    - { option: "username", value: "cinder" }
+    - { option: "password", value: "{{ cinder_service_password }}" }
+
+- name: Configure LVM backend for Cinder
+  lineinfile:
+    path: /etc/cinder/cinder.conf
+    section: lvm
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+  with_items:
+    - { option: "volume_driver", value: "cinder.volume.drivers.lvm.LVMVolumeDriver" }
+    - { option: "volume_group", value: "{{ cinder_volume_group }}" }
+    - { option: "volume_backend_name", value: "lvm" }
+    - { option: "iscsi_protocol", value: "iscsi" }
+    - { option: "iscsi_helper", value: "tgtadm" }
+
+- name: Configure and create LVM volume group
+  block:
+    - name: Create LVM volume group
+      shell: |
+        vgcreate {{ cinder_volume_group }} {{ item }}
+      args:
+        creates: "/dev/{{ cinder_volume_group }}"
+      with_items: "{{ cinder_volume_devices }}"
+  rescue:
+    - name: Rollback LVM configuration
+      shell: |
+        vgremove {{ cinder_volume_group }}
+      ignore_errors: true
+
+- name: Initialize Cinder database
+  block:
+    - name: Sync Cinder database
+      command: >
+        su -s /bin/sh -c "cinder-manage db sync" cinder
+      args:
+        creates: /var/lib/cinder/cinder.sqlite
+  rescue:
+    - name: Rollback Cinder database initialization
+      command: >
+        mysql -u root -e "DROP DATABASE IF EXISTS {{ cinder_db_name }};"
+      ignore_errors: true
+
+- name: Restart Cinder services
+  block:
+    - name: Restart Cinder services
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+      with_items:
+        - cinder-api
+        - cinder-scheduler
+        - cinder-volume
+  rescue:
+    - name: Rollback Cinder service restart
+      service:
+        name: "{{ item }}"
+        state: stopped
+      with_items:
+        - cinder-api
+        - cinder-scheduler
+        - cinder-volume

@@ -1,0 +1,12 @@
+---
+# Neutron database configuration
+neutron_db_user: neutron
+neutron_db_password: "{{ lookup('env', 'NEUTRON_DB_PASSWORD') | default('neutron_password') }}"
+neutron_db_host: localhost
+neutron_db_name: neutron
+
+# Keystone authentication for Neutron
+neutron_service_password: "{{ lookup('env', 'NEUTRON_SERVICE_PASSWORD') | default('neutron_password') }}"
+
+# Keystone host
+keystone_host: "{{ keystone_host }}"

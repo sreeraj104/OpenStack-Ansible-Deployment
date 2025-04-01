@@ -1,0 +1,48 @@
+---
+- name: Install Horizon packages
+  block:
+    - name: Install Horizon packages
+      apt:
+        name:
+          - openstack-dashboard
+        state: present
+  rescue:
+    - name: Log Horizon package installation failure
+      debug:
+        msg: "Failed to install Horizon packages. Check your package manager logs."
+
+- name: Configure Horizon to bind to the EC2 public IP
+  block:
+    - name: Update Apache configuration for Horizon
+      lineinfile:
+        path: /etc/apache2/sites-available/000-default.conf
+        regexp: "^<VirtualHost .*:80>"
+        line: "<VirtualHost {{ ec2_public_ip }}:80>"
+  rescue:
+    - name: Log Apache configuration update failure
+      debug:
+        msg: "Failed to update Apache configuration for Horizon."
+
+- name: Update ALLOWED_HOSTS in Horizon settings
+  block:
+    - name: Update ALLOWED_HOSTS in Horizon settings
+      lineinfile:
+        path: /etc/openstack-dashboard/local_settings.py
+        regexp: "^ALLOWED_HOSTS ="
+        line: "ALLOWED_HOSTS = ['{{ ec2_public_ip }}', 'localhost', '127.0.0.1']"
+  rescue:
+    - name: Log Horizon settings update failure
+      debug:
+        msg: "Failed to update ALLOWED_HOSTS in Horizon settings."
+
+- name: Restart Apache2 for Horizon
+  block:
+    - name: Restart Apache2 for Horizon
+      service:
+        name: apache2
+        state: restarted
+        enabled: yes
+  rescue:
+    - name: Log Apache restart failure
+      debug:
+        msg: "Failed to restart Apache2 for Horizon."

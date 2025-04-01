@@ -1,0 +1,86 @@
+---
+- name: Install Heat for Nova auto-scaling
+  block:
+    - name: Install Heat packages
+      apt:
+        name:
+          - heat-api
+          - heat-engine
+          - python3-heatclient
+        state: present
+  rescue:
+    - name: Log Heat package installation failure
+      debug:
+        msg: "Failed to install Heat packages. Check your package manager logs."
+
+- name: Configure Heat to use Keystone
+  block:
+    - name: Configure Heat to use Keystone
+      lineinfile:
+        path: /etc/heat/heat.conf
+        section: keystone_authtoken
+        option: "{{ item.option }}"
+        value: "{{ item.value }}"
+      with_items:
+        - { option: "auth_url", value: "http://{{ keystone_host }}:5000/v3" }
+        - { option: "memcached_servers", value: "127.0.0.1:11211" }
+        - { option: "auth_type", value: "password" }
+        - { option: "project_domain_name", value: "Default" }
+        - { option: "user_domain_name", value: "Default" }
+        - { option: "project_name", value: "service" }
+        - { option: "username", value: "heat" }
+        - { option: "password", value: "{{ heat_service_password }}" }
+  rescue:
+    - name: Log Heat Keystone configuration failure
+      debug:
+        msg: "Failed to configure Heat to use Keystone."
+
+- name: Restart Heat services
+  block:
+    - name: Restart Heat services
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+      with_items:
+        - heat-api
+        - heat-engine
+  rescue:
+    - name: Log Heat service restart failure
+      debug:
+        msg: "Failed to restart Heat services."
+
+- name: Configure Swift for dynamic scaling
+  block:
+    - name: Configure Swift replicas
+      lineinfile:
+        path: /etc/swift/swift.conf
+        section: storage-policy:0
+        option: replicas
+        value: "{{ swift_replicas }}"
+  rescue:
+    - name: Log Swift configuration failure
+      debug:
+        msg: "Failed to configure Swift for dynamic scaling."
+
+- name: Add new Swift storage node
+  block:
+    - name: Add new Swift storage node
+      shell: |
+        swift-ring-builder /etc/swift/{{ item }} add --region 1 --zone 1 --ip {{ new_storage_node_ip }} --port {{ ports[item] }} --device sdb --weight 100
+        swift-ring-builder /etc/swift/{{ item }} rebalance
+      args:
+        creates: "/etc/swift/{{ item }}.gz"
+      with_items:
+        - account.builder
+        - container.builder
+        - object.builder
+      vars:
+        ports:
+          account.builder: 6002
+          container.builder: 6001
+          object.builder: 6000
+  rescue:
+    - name: Log Swift storage node addition failure
+      debug:
+        msg: "Failed to add new Swift storage node."

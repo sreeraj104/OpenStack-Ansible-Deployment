@@ -1,0 +1,6 @@
+---
+# Keystone host
+keystone_host: "{{ keystone_host }}"
+
+# EC2 public IP for Horizon binding
+ec2_public_ip: "{{ ec2_public_ip }}"

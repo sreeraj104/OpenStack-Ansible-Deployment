@@ -1,0 +1,11 @@
+---
+# SSH key pair configuration
+keypair_name: "{{ lookup('env', 'KEYPAIR_NAME') | default('default-keypair') }}"
+keypair_private_key: "{{ lookup('env', 'KEYPAIR_PRIVATE_KEY') | default('/root/.ssh/id_rsa') }}"
+keypair_public_key: "{{ lookup('env', 'KEYPAIR_PUBLIC_KEY') | default('/root/.ssh/id_rsa.pub') }}"
+
+# Keystone admin credentials
+admin_password: "{{ lookup('env', 'KEYSTONE_ADMIN_PASSWORD') | default('admin_password') }}"
+
+# Keystone host
+keystone_host: "{{ lookup('env', 'KEYSTONE_HOST') | default('127.0.0.1') }}"
