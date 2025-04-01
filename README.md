@@ -164,6 +164,7 @@ Refer to the Validation Guide for detailed steps to validate your OpenStack depl
 
 ## Troubleshooting
 Refer to the Troubleshooting Guide for solutions to common issues.
+
 ---
 
 ## Documentation
