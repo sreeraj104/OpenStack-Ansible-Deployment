@@ -83,11 +83,6 @@
         - cinder-scheduler
         - cinder-volume
   rescue:
-    - name: Rollback Cinder service restart
-      service:
-        name: "{{ item }}"
-        state: stopped
-      with_items:
-        - cinder-api
-        - cinder-scheduler
-        - cinder-volume
+    - name: Log Cinder service restart failure
+      debug:
+        msg: "Failed to restart Cinder services."
